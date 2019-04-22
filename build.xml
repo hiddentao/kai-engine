@@ -1,0 +1,145 @@
+<!--
+  Copyright (C) 2010 Ramesh Nair (www.hiddentao.com)
+  
+  This is free software: you can redistribute it and/or modify it under the 
+  terms of the GNU Lesser General Public License as published by the Free 
+  Software Foundation, either version 3 of the License, or (at your option) any later version.
+  
+  This is distributed in the hope that it will  be useful, but WITHOUT ANY 
+  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details.
+  
+  You should have received a copy of the GNU Lesser General Public License
+  along with this.  If not, see <http://www.gnu.org/licenses/>.
+-->  
+<project name="Kai Engine" default="clean-build-project" basedir=".">
+
+	<property environment="env" />
+	
+	<property name="project.source_java_version" value="1.5" />
+	<property name="project.target_java_version" value="1.5" />
+
+	<property name="debuglevel" value="lines, vars, source" />
+	
+	<property name="project.bin.dir" value="${basedir}/bin" />
+	<property name="project.applet.dir" value="${basedir}/applet" />
+	<property name="project.temp.dir" value="${basedir}/temp" />
+	<property name="project.deploy.dir" value="${basedir}/deploy" />
+
+	<property name="common-utils.basedir" value="${basedir}/../common-utils" />
+
+	<property name="javac.path" value="${env.JAVA_HOME}/bin/javac.exe" />
+	
+
+	<path id="project.classpath">
+		<pathelement location="${project.bin.dir}" />
+	</path>
+
+
+	<target name="init">
+		<echo message="${ant.project.name}: ${ant.file}" />
+		<delete dir="${project.bin.dir}" />
+		<mkdir dir="${project.bin.dir}" />
+		<delete dir="${project.deploy.dir}" />
+		<mkdir dir="${project.deploy.dir}" />
+		<delete dir="${project.temp.dir}" />
+		<mkdir dir="${project.temp.dir}" />
+	</target>
+
+
+	<target name="build-classes" depends="init">
+		<echo message="Build classes." />
+
+		<echo message="Build common-utils" />
+		<javac debug="true" debuglevel="${debuglevel}" 
+						destdir="${project.bin.dir}" 
+						source="${project.source_java_version}" 
+						target="${project.target_java_version}"
+						fork="yes" executable="${javac.path}">
+			<src path="${common-utils.basedir}/src" />
+			<exclude name="**/*Test*.java" />
+			<classpath refid="project.classpath" />
+		</javac>
+		
+		<echo message="Build my classes" />
+		<javac debug="true" debuglevel="${debuglevel}" 
+						destdir="${project.bin.dir}" 
+						source="${project.source_java_version}" 
+						target="${project.target_java_version}"
+						fork="yes" executable="${javac.path}">
+			<src path="${basedir}/src" />
+			<exclude name="**/*Test*.java" />
+			<classpath refid="project.classpath" />
+		</javac>
+				
+	</target>	
+
+
+	<target name="build-jar" depends="build-classes">
+		<echo message="Build JAR" />
+
+		<jar destfile="${project.temp.dir}/kai.unobfuscated.jar" basedir="${project.bin.dir}" duplicate="preserve">
+			<manifest>
+				<attribute name="Author" value="Ramesh Nair (www.hiddentao.com)"/>
+			</manifest>
+		</jar>
+		
+	</target>	
+			
+	
+	<target name="obfuscate-jar" depends="build-jar">
+		<echo message="Obfuscate JAR" />
+
+		<taskdef resource="proguard/ant/task.properties"
+		         classpath="${env.PROGUARD_HOME}/lib/proguard.jar" />	
+		
+		<proguard>
+		  -libraryjars "${env.JAVA_HOME}/jre/lib/rt.jar"
+		  -injars      ${project.temp.dir}/kai.unobfuscated.jar
+		  -outjars     ${project.deploy.dir}/kai.jar
+		  -printseeds
+		  -forceprocessing
+		  
+		  -keep public class * extends javax.swing.applet.JAbstractApplet
+			
+		  -keepclasseswithmembers public class * {
+			    public static void main(java.lang.String[]);
+		  }
+		</proguard>
+		
+	</target>	
+			
+	
+	<target name="copy-html" depends="obfuscate-jar">
+		<echo message="Copy over HTML files" />
+		<copy file="${project.applet.dir}/applet.html" todir="${project.deploy.dir}"></copy>
+	</target>
+			
+					
+  <!--
+  Main targets.
+  -->
+  		
+	
+	<target name="clean-build-project" depends="build-classes,build-jar,obfuscate-jar,copy-html"  description="Build the output JAR." />
+
+
+	<target name="demo" depends="build-jar" description="Run demos using the applet simulator.">
+		<echo message="Running demos using the simulator." />
+		
+		<java classname="javax.swing.applet.JAppletSimulator" 
+					fork="true" dir="${project.deploy.dir}" failonerror="true">
+			<classpath location="${project.temp.dir}/kai.unobfuscated.jar" />
+			<arg value="com.hiddentao.kai.demos.DemoApplet" />
+			<arg value="${project.temp.dir}/kai.unobfuscated.jar" />
+			<arg value="640" />
+			<arg value="480" />
+		</java>
+			
+	</target>
+	
+
+	
+</project>
+
+
+
